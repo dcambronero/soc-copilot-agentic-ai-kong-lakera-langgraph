@@ -38,6 +38,8 @@ class SOCState(TypedDict, total=False):
     evidence: List[Dict[str, Any]]
     sources: List[str]
 
+    rag_analyst_mode: str
+
     risk: Dict[str, Any]
     severity: str
 
@@ -54,17 +56,18 @@ class SOCState(TypedDict, total=False):
 
 class SOCGraph:
     """
-    SOC Copilot V3.
+    SOC Copilot V3.3.
 
-    Cambios V3:
-    - Risk Classifier sigue siendo determinístico.
-    - Action Planner ahora usa LLM vía Kong AI Gateway.
-    - Lakera sigue centralizado en Kong como plugin.
+    Cambios:
+    - RAG Analyst ahora usa LLM vía Kong.
+    - RAG retrieval sigue usando LangChain + ChromaDB.
+    - Risk Classifier sigue determinístico.
+    - Action Planner usa LLM vía Kong.
     """
 
     def __init__(self):
         self.rag = RAGEngine()
-        self.rag_analyst = RAGIncidentAnalyst()
+        self.rag_fallback_analyst = RAGIncidentAnalyst()
         self.risk_classifier = RiskClassifier()
         self.mcp = MCPClient()
         self.kong_ai = KongAIClient()
@@ -75,8 +78,13 @@ class SOCGraph:
         workflow = StateGraph(SOCState)
 
         workflow.add_node(
-            "rag",
-            self._rag_node
+            "rag_retrieval",
+            self._rag_retrieval_node
+        )
+
+        workflow.add_node(
+            "rag_analyst_llm",
+            self._rag_analyst_llm_node
         )
 
         workflow.add_node(
@@ -105,11 +113,16 @@ class SOCGraph:
         )
 
         workflow.set_entry_point(
-            "rag"
+            "rag_retrieval"
         )
 
         workflow.add_edge(
-            "rag",
+            "rag_retrieval",
+            "rag_analyst_llm"
+        )
+
+        workflow.add_edge(
+            "rag_analyst_llm",
             "mcp"
         )
 
@@ -187,7 +200,7 @@ class SOCGraph:
 
         return "standard"
 
-    def _rag_node(
+    def _rag_retrieval_node(
         self,
         state: SOCState
     ) -> Dict[str, Any]:
@@ -208,22 +221,52 @@ class SOCGraph:
                 "content": result.page_content.strip()
             })
 
-        rag_analysis = self.rag_analyst.analyze(
-            incident=incident,
-            context_blocks=context_blocks
+        return {
+            "graph_trace": self._append_trace(
+                state,
+                "rag_retrieval"
+            ),
+            "context_blocks": context_blocks
+        }
+
+    def _rag_analyst_llm_node(
+        self,
+        state: SOCState
+    ) -> Dict[str, Any]:
+        incident = state["incident"]
+
+        context_blocks = state.get(
+            "context_blocks",
+            []
         )
+
+        try:
+            rag_analysis = self.kong_ai.analyze_rag_context(
+                incident=incident,
+                context_blocks=context_blocks
+            )
+
+            rag_mode = "llm_via_kong"
+
+        except Exception:
+            rag_analysis = self.rag_fallback_analyst.analyze(
+                incident=incident,
+                context_blocks=context_blocks
+            )
+
+            rag_mode = "fallback_rules"
 
         return {
             "graph_trace": self._append_trace(
                 state,
-                "rag"
+                "rag_analyst_llm"
             ),
-            "context_blocks": context_blocks,
             "incident_type": rag_analysis["incident_type"],
             "known_facts": rag_analysis["known_facts"],
             "missing_information": rag_analysis["missing_information"],
             "evidence": rag_analysis["evidence"],
-            "sources": rag_analysis["sources"]
+            "sources": rag_analysis["sources"],
+            "rag_analyst_mode": rag_mode
         }
 
     def _mcp_node(

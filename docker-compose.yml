@@ -4,7 +4,7 @@ services:
 
     image: kong/kong-gateway:3.13
 
-    container_name: soc-kong-ai-gateway
+    container_name: soc-kong-ai-gateway-agentic
 
     restart: unless-stopped
 
@@ -29,9 +29,9 @@ services:
 
     ports:
 
-      - "8000:8000"
+      - "8010:8000"
 
-      - "8001:8001"
+      - "8011:8001"
 
     volumes:
 

@@ -7,7 +7,7 @@
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     />
-    <title>SOC Copilot Seguro V3</title>
+    <title>SOC Copilot Seguro V3.3</title>
     <link
         rel="stylesheet"
         href="/static/style.css"
@@ -21,8 +21,8 @@
                 <div class="brand-icon">SOC</div>
 
                 <div>
-                    <h1>SOC Copilot Seguro V3</h1>
-                    <p>LangGraph · RAG · MCP · Kong · Lakera · LLM Agent</p>
+                    <h1>SOC Copilot Seguro V3.3</h1>
+                    <p>LangGraph · RAG LLM · MCP · Kong · Lakera</p>
                 </div>
             </div>
 
@@ -31,16 +31,17 @@
 
                 <div>
                     <strong>Laboratorio activo</strong>
-                    <p>Action Planner LLM vía Kong</p>
+                    <p>RAG Analyst LLM + Action Planner LLM</p>
                 </div>
             </div>
 
             <div class="flow-card">
-                <h2>Flujo V3</h2>
+                <h2>Flujo V3.3</h2>
 
                 <ol>
                     <li>LangGraph inicia flujo</li>
-                    <li>RAG busca evidencia</li>
+                    <li>RAG retrieval busca evidencia</li>
+                    <li>RAG Analyst LLM analiza contexto</li>
                     <li>MCP consulta herramientas</li>
                     <li>Risk Classifier calcula severidad</li>
                     <li>Conditional Edge evalúa severidad</li>
@@ -56,12 +57,12 @@
                 <p class="eyebrow">Security Operations Copilot</p>
 
                 <h2>
-                    SOC Copilot V3 con Action Planner LLM Agent.
+                    SOC Copilot V3.3 con RAG Analyst LLM Agent.
                 </h2>
 
                 <p>
-                    Esta versión convierte el Action Planner en un agente LLM real,
-                    pero mantiene el cálculo de riesgo de forma determinística.
+                    Esta versión convierte el analista RAG en un agente LLM real,
+                    manteniendo el Risk Classifier determinístico.
                 </p>
             </section>
 
@@ -237,6 +238,9 @@
                     <span class="label">Traza LangGraph</span>
                     ${formatTrace(data.graph_trace)}
 
+                    <span class="label">Modo RAG Analyst</span>
+                    <p><strong>${escapeHtml(data.rag_analyst_mode || "N/A")}</strong></p>
+
                     <span class="label">Modo Action Planner</span>
                     <p><strong>${escapeHtml(data.action_planner_mode || "N/A")}</strong></p>
 
@@ -320,7 +324,7 @@
 
                 addMessage(
                     "assistant",
-                    "Ejecutando LangGraph con Action Planner LLM vía Kong..."
+                    "Ejecutando LangGraph con RAG Analyst LLM y Action Planner LLM vía Kong..."
                 );
 
                 try {

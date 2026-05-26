@@ -20,13 +20,17 @@ class SOCOrchestrator:
             ),
 
             "summary": (
-                "Procesado por SOC Copilot V3 usando LangGraph, "
-                "RAG, MCP, agentes, Action Planner LLM y Kong AI Gateway."
+                "Procesado por SOC Copilot V3.3 usando LangGraph, "
+                "RAG Analyst LLM, MCP, Action Planner LLM y Kong AI Gateway."
             ),
 
             "graph_trace": state.get(
                 "graph_trace",
                 []
+            ),
+
+            "rag_analyst_mode": state.get(
+                "rag_analyst_mode"
             ),
 
             "severity": state.get(
