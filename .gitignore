@@ -1,0 +1,14 @@
+.venv/
+.env
+
+__pycache__/
+*.pyc
+.pytest_cache/
+
+vector_db/
+.chroma/
+
+kong/kong.yml
+
+.DS_Store
+.vscode/

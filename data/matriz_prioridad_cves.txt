@@ -1,0 +1,17 @@
+Matriz de Prioridad de Vulnerabilidades
+
+La prioridad no debe basarse únicamente en CVSS.
+
+Factores:
+1. Exposición a internet.
+2. Explotación activa.
+3. Criticidad del activo.
+4. Disponibilidad de exploit público.
+5. Presencia de controles compensatorios.
+6. Impacto potencial al negocio.
+
+Prioridad:
+- Baja: baja criticidad y sin explotación conocida.
+- Media: vulnerabilidad relevante pero con baja exposición.
+- Alta: activo crítico o exposición significativa.
+- Crítica: explotación activa, activo crítico o exposición directa a internet.

@@ -1,0 +1,20 @@
+Playbook SOC - Ransomware
+
+Objetivo:
+Responder a eventos relacionados con cifrado malicioso, ejecución sospechosa o comportamiento compatible con ransomware.
+
+Pasos recomendados:
+1. Identificar activo afectado.
+2. Aislar el endpoint o servidor comprometido.
+3. Revisar indicadores de cifrado masivo.
+4. Verificar ejecución de procesos sospechosos.
+5. Buscar propagación lateral.
+6. Revisar respaldos disponibles.
+7. Preservar evidencia.
+8. Escalar al equipo de respuesta a incidentes.
+9. Coordinar recuperación.
+10. Generar reporte ejecutivo.
+
+Severidad sugerida:
+- Alta: comportamiento sospechoso limitado.
+- Crítica: cifrado activo, múltiples activos afectados o impacto operativo.

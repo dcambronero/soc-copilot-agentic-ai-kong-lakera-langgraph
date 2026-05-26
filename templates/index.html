@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    />
+    <title>SOC Copilot Seguro V3</title>
+    <link
+        rel="stylesheet"
+        href="/static/style.css"
+    />
+</head>
+
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">SOC</div>
+
+                <div>
+                    <h1>SOC Copilot Seguro V3</h1>
+                    <p>LangGraph · RAG · MCP · Kong · Lakera · LLM Agent</p>
+                </div>
+            </div>
+
+            <div class="status-card">
+                <span class="status-dot"></span>
+
+                <div>
+                    <strong>Laboratorio activo</strong>
+                    <p>Action Planner LLM vía Kong</p>
+                </div>
+            </div>
+
+            <div class="flow-card">
+                <h2>Flujo V3</h2>
+
+                <ol>
+                    <li>LangGraph inicia flujo</li>
+                    <li>RAG busca evidencia</li>
+                    <li>MCP consulta herramientas</li>
+                    <li>Risk Classifier calcula severidad</li>
+                    <li>Conditional Edge evalúa severidad</li>
+                    <li>Action Planner LLM genera plan</li>
+                    <li>Kong + Lakera validan</li>
+                    <li>OpenAI genera respuesta final</li>
+                </ol>
+            </div>
+        </aside>
+
+        <main class="main-panel">
+            <section class="hero">
+                <p class="eyebrow">Security Operations Copilot</p>
+
+                <h2>
+                    SOC Copilot V3 con Action Planner LLM Agent.
+                </h2>
+
+                <p>
+                    Esta versión convierte el Action Planner en un agente LLM real,
+                    pero mantiene el cálculo de riesgo de forma determinística.
+                </p>
+            </section>
+
+            <section class="chat-card">
+                <div
+                    id="chatWindow"
+                    class="chat-window"
+                >
+                    <div class="message assistant">
+                        <div class="avatar">AI</div>
+
+                        <div class="bubble">
+                            Hola. Describe un incidente SOC.
+
+                            <br><br>
+
+                            <em>
+                                El usuario admin@empresa.com reporta cifrado
+                                de archivos en srv-finanzas-01 y múltiples
+                                alertas de ransomware.
+                            </em>
+                        </div>
+                    </div>
+                </div>
+
+                <form
+                    id="chatForm"
+                    class="chat-form"
+                >
+                    <textarea
+                        id="messageInput"
+                        rows="4"
+                        placeholder="Describe el incidente..."
+                    ></textarea>
+
+                    <button
+                        type="submit"
+                        id="sendButton"
+                    >
+                        Analizar incidente
+                    </button>
+                </form>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const chatForm = document.getElementById("chatForm");
+        const messageInput = document.getElementById("messageInput");
+        const chatWindow = document.getElementById("chatWindow");
+        const sendButton = document.getElementById("sendButton");
+
+        function escapeHtml(value) {
+            return String(value || "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        function addMessage(role, content) {
+            const message = document.createElement("div");
+            message.className = `message ${role}`;
+
+            const avatar = document.createElement("div");
+            avatar.className = "avatar";
+            avatar.textContent = role === "user" ? "Tú" : "AI";
+
+            const bubble = document.createElement("div");
+            bubble.className = "bubble";
+            bubble.innerHTML = content;
+
+            message.appendChild(avatar);
+            message.appendChild(bubble);
+
+            chatWindow.appendChild(message);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        function listItems(items) {
+            return (items || [])
+                .map(item => `<li>${escapeHtml(item)}</li>`)
+                .join("");
+        }
+
+        function formatTrace(trace) {
+            if (!trace || trace.length === 0) {
+                return "<p>No hay traza disponible.</p>";
+            }
+
+            return `
+                <div class="trace-box">
+                    ${trace.map(step => `
+                        <span class="trace-step">${escapeHtml(step)}</span>
+                    `).join(`<span class="trace-arrow">→</span>`)}
+                </div>
+            `;
+        }
+
+        function formatTicket(mcp) {
+            if (!mcp || !mcp.ticket) {
+                return `<p>No se creó ticket simulado.</p>`;
+            }
+
+            const ticket = mcp.ticket;
+
+            return `
+                <div class="ticket-box">
+                    <p><strong>ID:</strong> ${escapeHtml(ticket.ticket_id || "N/A")}</p>
+                    <p><strong>Estado:</strong> ${escapeHtml(ticket.status || "N/A")}</p>
+                    <p><strong>Severidad:</strong> ${escapeHtml(ticket.severity || "N/A")}</p>
+                    <p><strong>Resumen:</strong> ${escapeHtml(ticket.summary || "N/A")}</p>
+                    <p><strong>Creado:</strong> ${escapeHtml(ticket.created_at || "N/A")}</p>
+                </div>
+            `;
+        }
+
+        function formatFinalResponse(text) {
+            if (!text) {
+                return "<p>No se generó respuesta final.</p>";
+            }
+
+            return `
+                <div class="final-response">
+                    ${escapeHtml(text).replaceAll("\n", "<br>")}
+                </div>
+            `;
+        }
+
+        function formatCriticalEscalation(escalation) {
+            if (!escalation || !escalation.required) {
+                return `
+                    <p>
+                        No se activó escalamiento crítico.
+                    </p>
+                `;
+            }
+
+            return `
+                <div class="ticket-box">
+                    <p><strong>Requerido:</strong> Sí</p>
+                    <p><strong>Razón:</strong> ${escapeHtml(escalation.reason)}</p>
+                    <p><strong>SLA:</strong> ${escapeHtml(escalation.sla)}</p>
+                    <p><strong>Notificar:</strong></p>
+                    <ul>${listItems(escalation.notify)}</ul>
+                    <p><strong>Nota ejecutiva:</strong> ${escapeHtml(escalation.executive_note)}</p>
+                </div>
+            `;
+        }
+
+        function formatResponse(data) {
+            const knownFacts = listItems(data.known_facts);
+            const missing = listItems(data.missing_information);
+            const sources = listItems(data.sources);
+
+            const evidence = (data.evidence || [])
+                .map(e => `
+                    <li>
+                        <strong>${escapeHtml(e.source)}</strong><br>
+                        ${escapeHtml(e.excerpt).replaceAll("\n", "<br>")}
+                    </li>
+                `)
+                .join("");
+
+            const actionPlan = data.action_plan || {};
+
+            return `
+                <div>
+                    <span class="label">Respuesta final del SOC Copilot</span>
+                    ${formatFinalResponse(data.final_response)}
+
+                    <span class="label">Traza LangGraph</span>
+                    ${formatTrace(data.graph_trace)}
+
+                    <span class="label">Modo Action Planner</span>
+                    <p><strong>${escapeHtml(data.action_planner_mode || "N/A")}</strong></p>
+
+                    <span class="label">Gateway Guardrails</span>
+                    <pre>${escapeHtml(JSON.stringify(data.gateway_guardrails, null, 2))}</pre>
+
+                    <span class="label">Resumen técnico del flujo</span>
+                    <p>${escapeHtml(data.summary)}</p>
+
+                    <span class="label">Tipo incidente</span>
+                    <p>${escapeHtml(data.incident_type)}</p>
+
+                    <span class="label">Severidad</span>
+                    <p>
+                        <strong class="severity">
+                            ${escapeHtml(data.severity)}
+                        </strong>
+                    </p>
+
+                    <span class="label">Escalamiento crítico</span>
+                    ${formatCriticalEscalation(data.critical_escalation)}
+
+                    <span class="label">Ticket simulado</span>
+                    ${formatTicket(data.mcp)}
+
+                    <span class="label">Risk Classifier</span>
+                    <pre>${escapeHtml(JSON.stringify(data.risk, null, 2))}</pre>
+
+                    <span class="label">Plan de contención</span>
+                    <ul>${listItems(actionPlan.containment)}</ul>
+
+                    <span class="label">Plan de investigación</span>
+                    <ul>${listItems(actionPlan.investigation)}</ul>
+
+                    <span class="label">Plan de erradicación</span>
+                    <ul>${listItems(actionPlan.eradication)}</ul>
+
+                    <span class="label">Plan de recuperación</span>
+                    <ul>${listItems(actionPlan.recovery)}</ul>
+
+                    <span class="label">Reporte y escalamiento</span>
+                    <ul>${listItems(actionPlan.reporting)}</ul>
+
+                    <span class="label">Nota de seguridad</span>
+                    <p>${escapeHtml(actionPlan.safety_note || "")}</p>
+
+                    <span class="label">Hechos conocidos</span>
+                    <ul>${knownFacts}</ul>
+
+                    <span class="label">Información pendiente</span>
+                    <ul>${missing}</ul>
+
+                    <span class="label">Evidencia RAG</span>
+                    <ul>${evidence}</ul>
+
+                    <span class="label">Fuentes</span>
+                    <ul>${sources}</ul>
+
+                    <span class="label">MCP completo</span>
+                    <pre>${escapeHtml(JSON.stringify(data.mcp, null, 2))}</pre>
+                </div>
+            `;
+        }
+
+        chatForm.addEventListener(
+            "submit",
+            async function(event) {
+                event.preventDefault();
+
+                const message = messageInput.value.trim();
+
+                if (!message) {
+                    return;
+                }
+
+                addMessage("user", escapeHtml(message).replaceAll("\n", "<br>"));
+
+                messageInput.value = "";
+                sendButton.disabled = true;
+                sendButton.innerText = "Analizando...";
+
+                addMessage(
+                    "assistant",
+                    "Ejecutando LangGraph con Action Planner LLM vía Kong..."
+                );
+
+                try {
+                    const response = await fetch(
+                        "/chat",
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json"
+                            },
+                            body: JSON.stringify({
+                                message
+                            })
+                        }
+                    );
+
+                    const data = await response.json();
+
+                    chatWindow.removeChild(chatWindow.lastChild);
+
+                    if (!response.ok) {
+                        addMessage(
+                            "assistant",
+                            escapeHtml(data.error || "Error procesando incidente.")
+                        );
+                    } else {
+                        addMessage(
+                            "assistant",
+                            formatResponse(data)
+                        );
+                    }
+
+                } catch (error) {
+                    chatWindow.removeChild(chatWindow.lastChild);
+
+                    addMessage(
+                        "assistant",
+                        "Error conectando con el backend Flask."
+                    );
+                }
+
+                sendButton.disabled = false;
+                sendButton.innerText = "Analizar incidente";
+            }
+        );
+    </script>
+</body>
+
+</html>

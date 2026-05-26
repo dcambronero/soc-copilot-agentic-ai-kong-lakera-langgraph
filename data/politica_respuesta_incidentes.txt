@@ -1,0 +1,18 @@
+Política de Respuesta a Incidentes
+
+Todo incidente debe ser clasificado según severidad, impacto y alcance.
+
+Fases:
+1. Preparación.
+2. Identificación.
+3. Contención.
+4. Erradicación.
+5. Recuperación.
+6. Lecciones aprendidas.
+
+Reglas:
+- No ejecutar acciones destructivas sin aprobación.
+- Toda acción debe documentarse.
+- Incidentes críticos deben escalarse inmediatamente.
+- Si hay exposición de credenciales, debe solicitarse cambio de contraseña.
+- Si hay impacto legal, regulatorio o de datos personales, debe notificarse al área correspondiente.

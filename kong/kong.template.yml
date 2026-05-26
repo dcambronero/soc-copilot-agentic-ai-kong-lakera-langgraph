@@ -1,0 +1,52 @@
+_format_version: "3.0"
+
+services:
+
+- name: openai-chat-service
+
+  url: https://api.openai.com
+
+  routes:
+
+  - name: openai-chat-route
+
+    paths:
+    - /openai
+
+    strip_path: true
+
+  plugins:
+
+  - name: ai-lakera-guard
+
+    config:
+
+      api_key: "${LAKERA_API_KEY}"
+
+      project_id: "${LAKERA_PROJECT_ID}"
+
+      reveal_failure_categories: true
+
+  - name: ai-proxy
+
+    config:
+
+      route_type: llm/v1/chat
+
+      auth:
+
+        header_name: Authorization
+
+        header_value: "Bearer ${OPENAI_API_KEY}"
+
+      model:
+
+        provider: openai
+
+        name: gpt-4o-mini
+
+        options:
+
+          temperature: 0.2
+
+          max_tokens: 800

@@ -1,0 +1,22 @@
+Playbook SOC - Phishing
+
+Objetivo:
+Responder a incidentes donde un usuario recibe o hace clic en un enlace sospechoso por correo electrónico.
+
+Pasos recomendados:
+1. Confirmar el usuario afectado.
+2. Identificar el correo original, remitente, asunto, URL e indicadores.
+3. Revisar si el usuario ingresó credenciales.
+4. Consultar alertas recientes relacionadas con el indicador.
+5. Aislar o monitorear el endpoint si hay señales de compromiso.
+6. Bloquear la URL, dominio o IP en controles de seguridad.
+7. Resetear contraseña si hubo exposición de credenciales.
+8. Revisar actividad anómala posterior al clic.
+9. Crear ticket de incidente.
+10. Documentar hallazgos y acciones.
+
+Severidad sugerida:
+- Baja: correo recibido pero no abierto.
+- Media: usuario abrió el correo pero no hizo clic.
+- Alta: usuario hizo clic en enlace sospechoso.
+- Crítica: usuario ingresó credenciales o hay evidencia de compromiso.
