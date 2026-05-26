@@ -1,4 +1,3 @@
-import re
 from typing import TypedDict, Optional, List, Dict, Any
 
 from langgraph.graph import (
@@ -20,6 +19,10 @@ from src.kong_client import (
     KongAIBlockedError
 )
 
+from src.tool_router_agent import ToolRouterAgent
+from src.tool_executor import ToolExecutor
+from src.reviewer_agent import ReviewerAgent
+
 
 class SOCState(TypedDict, total=False):
     incident: str
@@ -28,9 +31,18 @@ class SOCState(TypedDict, total=False):
     context_blocks: List[Dict[str, Any]]
 
     user_email: Optional[str]
+    asset_name: Optional[str]
+    indicator: Optional[str]
+
     user_risk: Optional[Dict[str, Any]]
+    asset_info: Optional[Dict[str, Any]]
     alerts: Dict[str, Any]
     ticket: Dict[str, Any]
+
+    mcp_tools_used: List[str]
+    mcp_tool_calls: List[Dict[str, Any]]
+    mcp_tool_results: List[Dict[str, Any]]
+    mcp_router_mode: str
 
     incident_type: str
     known_facts: List[str]
@@ -48,6 +60,8 @@ class SOCState(TypedDict, total=False):
     action_plan: Dict[str, Any]
     action_planner_mode: str
 
+    review: Dict[str, Any]
+
     final_response: str
 
     blocked: bool
@@ -55,22 +69,15 @@ class SOCState(TypedDict, total=False):
 
 
 class SOCGraph:
-    """
-    SOC Copilot V3.3.
-
-    Cambios:
-    - RAG Analyst ahora usa LLM vía Kong.
-    - RAG retrieval sigue usando LangChain + ChromaDB.
-    - Risk Classifier sigue determinístico.
-    - Action Planner usa LLM vía Kong.
-    """
-
     def __init__(self):
         self.rag = RAGEngine()
         self.rag_fallback_analyst = RAGIncidentAnalyst()
         self.risk_classifier = RiskClassifier()
         self.mcp = MCPClient()
         self.kong_ai = KongAIClient()
+        self.tool_router = ToolRouterAgent()
+        self.tool_executor = ToolExecutor()
+        self.reviewer = ReviewerAgent()
 
         self.graph = self._build_graph()
 
@@ -88,8 +95,13 @@ class SOCGraph:
         )
 
         workflow.add_node(
-            "mcp",
-            self._mcp_node
+            "tool_router_llm",
+            self._tool_router_llm_node
+        )
+
+        workflow.add_node(
+            "tool_executor",
+            self._tool_executor_node
         )
 
         workflow.add_node(
@@ -108,6 +120,11 @@ class SOCGraph:
         )
 
         workflow.add_node(
+            "reviewer_llm",
+            self._reviewer_llm_node
+        )
+
+        workflow.add_node(
             "llm",
             self._llm_node
         )
@@ -123,11 +140,16 @@ class SOCGraph:
 
         workflow.add_edge(
             "rag_analyst_llm",
-            "mcp"
+            "tool_router_llm"
         )
 
         workflow.add_edge(
-            "mcp",
+            "tool_router_llm",
+            "tool_executor"
+        )
+
+        workflow.add_edge(
+            "tool_executor",
             "risk"
         )
 
@@ -147,6 +169,11 @@ class SOCGraph:
 
         workflow.add_edge(
             "planner_llm",
+            "reviewer_llm"
+        )
+
+        workflow.add_edge(
+            "reviewer_llm",
             "llm"
         )
 
@@ -165,7 +192,11 @@ class SOCGraph:
             "incident": incident,
             "blocked": False,
             "critical_escalation": {},
-            "graph_trace": []
+            "graph_trace": [],
+            "mcp_tools_used": [],
+            "mcp_tool_calls": [],
+            "mcp_tool_results": [],
+            "review": {}
         }
 
         return self.graph.invoke(
@@ -269,35 +300,78 @@ class SOCGraph:
             "rag_analyst_mode": rag_mode
         }
 
-    def _mcp_node(
+    def _tool_router_llm_node(
         self,
         state: SOCState
     ) -> Dict[str, Any]:
-        incident = state["incident"]
-
-        user_email = self._extract_email(
-            incident
-        )
-
-        user_risk = None
-
-        if user_email:
-            user_risk = self.mcp.get_user_risk(
-                user_email
+        decision = self.tool_router.decide_tools(
+            incident=state["incident"],
+            incident_type=state.get(
+                "incident_type",
+                ""
+            ),
+            known_facts=state.get(
+                "known_facts",
+                []
             )
-
-        alerts = self.mcp.search_recent_alerts(
-            incident
         )
 
         return {
             "graph_trace": self._append_trace(
                 state,
-                "mcp"
+                "tool_router_llm"
             ),
-            "user_email": user_email,
-            "user_risk": user_risk,
-            "alerts": alerts
+            "mcp_router_mode": decision.get(
+                "mode"
+            ),
+            "mcp_tool_calls": decision.get(
+                "tool_calls",
+                []
+            )
+        }
+
+    def _tool_executor_node(
+        self,
+        state: SOCState
+    ) -> Dict[str, Any]:
+        results = self.tool_executor.execute(
+            state.get(
+                "mcp_tool_calls",
+                []
+            )
+        )
+
+        return {
+            "graph_trace": self._append_trace(
+                state,
+                "tool_executor"
+            ),
+            "user_email": results.get(
+                "user_email"
+            ),
+            "asset_name": results.get(
+                "asset_name"
+            ),
+            "indicator": results.get(
+                "indicator"
+            ),
+            "user_risk": results.get(
+                "user_risk"
+            ),
+            "asset_info": results.get(
+                "asset_info"
+            ),
+            "alerts": results.get(
+                "alerts"
+            ),
+            "mcp_tools_used": results.get(
+                "tools_used",
+                []
+            ),
+            "mcp_tool_results": results.get(
+                "tool_results",
+                []
+            )
         }
 
     def _risk_node(
@@ -309,6 +383,32 @@ class SOCGraph:
             user_risk=state.get("user_risk"),
             alerts=state.get("alerts")
         )
+
+        asset_info = state.get(
+            "asset_info"
+        )
+
+        if asset_info:
+            criticality = asset_info.get(
+                "criticality",
+                ""
+            )
+
+            if criticality == "alta":
+                risk["score"] = risk.get(
+                    "score",
+                    0
+                ) + 2
+
+                risk["reasons"].append(
+                    "Activo con criticidad alta según MCP."
+                )
+
+                if risk["score"] >= 7:
+                    risk["severity"] = "Crítica"
+
+                elif risk["score"] >= 5:
+                    risk["severity"] = "Alta"
 
         return {
             "graph_trace": self._append_trace(
@@ -426,6 +526,34 @@ class SOCGraph:
             "action_planner_mode": planner_mode
         }
 
+    def _reviewer_llm_node(
+        self,
+        state: SOCState
+    ) -> Dict[str, Any]:
+        review = self.reviewer.review_plan(
+            incident=state["incident"],
+            incident_type=state["incident_type"],
+            severity=state["severity"],
+            risk=state["risk"],
+            action_plan=state["action_plan"],
+            sources=state.get(
+                "sources",
+                []
+            ),
+            critical_escalation=state.get(
+                "critical_escalation",
+                {}
+            )
+        )
+
+        return {
+            "graph_trace": self._append_trace(
+                state,
+                "reviewer_llm"
+            ),
+            "review": review
+        }
+
     def _llm_node(
         self,
         state: SOCState
@@ -464,19 +592,3 @@ class SOCGraph:
                 "error": error
             }
         }
-
-    def _extract_email(
-        self,
-        text: str
-    ):
-        match = re.search(
-            r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+",
-            text
-        )
-
-        if match:
-            return match.group(
-                0
-            )
-
-        return None

@@ -7,7 +7,7 @@
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     />
-    <title>SOC Copilot Seguro V3.3</title>
+    <title>SOC Copilot Seguro Agentic</title>
     <link
         rel="stylesheet"
         href="/static/style.css"
@@ -21,8 +21,8 @@
                 <div class="brand-icon">SOC</div>
 
                 <div>
-                    <h1>SOC Copilot Seguro V3.3</h1>
-                    <p>LangGraph · RAG LLM · MCP · Kong · Lakera</p>
+                    <h1>SOC Copilot Seguro Agentic</h1>
+                    <p>LangGraph · RAG LLM · MCP Tool Agent · Kong · Lakera</p>
                 </div>
             </div>
 
@@ -31,23 +31,25 @@
 
                 <div>
                     <strong>Laboratorio activo</strong>
-                    <p>RAG Analyst LLM + Action Planner LLM</p>
+                    <p>Agentic AI + observabilidad de agentes</p>
                 </div>
             </div>
 
             <div class="flow-card">
-                <h2>Flujo V3.3</h2>
+                <h2>Flujo actual</h2>
 
                 <ol>
                     <li>LangGraph inicia flujo</li>
                     <li>RAG retrieval busca evidencia</li>
                     <li>RAG Analyst LLM analiza contexto</li>
-                    <li>MCP consulta herramientas</li>
+                    <li>MCP Tool Agent consulta herramientas</li>
                     <li>Risk Classifier calcula severidad</li>
                     <li>Conditional Edge evalúa severidad</li>
+                    <li>Critical Escalation si aplica</li>
                     <li>Action Planner LLM genera plan</li>
                     <li>Kong + Lakera validan</li>
                     <li>OpenAI genera respuesta final</li>
+                    <li>Agent Memory registra ejecución</li>
                 </ol>
             </div>
         </aside>
@@ -57,12 +59,16 @@
                 <p class="eyebrow">Security Operations Copilot</p>
 
                 <h2>
-                    SOC Copilot V3.3 con RAG Analyst LLM Agent.
+                    SOC Copilot Agentic con LangGraph,
+                    MCP, Kong y Lakera.
                 </h2>
 
                 <p>
-                    Esta versión convierte el analista RAG en un agente LLM real,
-                    manteniendo el Risk Classifier determinístico.
+                    Esta versión muestra trazabilidad del grafo,
+                    herramientas usadas por MCP,
+                    memoria de agentes,
+                    guardrails del gateway
+                    y respuesta final vía OpenAI.
                 </p>
             </section>
 
@@ -80,9 +86,8 @@
                             <br><br>
 
                             <em>
-                                El usuario admin@empresa.com reporta cifrado
-                                de archivos en srv-finanzas-01 y múltiples
-                                alertas de ransomware.
+                                El usuario admin@empresa.com reporta ransomware
+                                en srv-finanzas-01.
                             </em>
                         </div>
                     </div>
@@ -214,6 +219,28 @@
             `;
         }
 
+        function formatMcpTools(mcp) {
+            if (!mcp || !mcp.tools_used || mcp.tools_used.length === 0) {
+                return "<p>No se registraron herramientas MCP.</p>";
+            }
+
+            return `
+                <ul>
+                    ${listItems(mcp.tools_used)}
+                </ul>
+            `;
+        }
+
+        function formatAgentMemory(memory) {
+            if (!memory || memory.length === 0) {
+                return "<p>No hay memoria de agentes disponible.</p>";
+            }
+
+            return `
+                <pre>${escapeHtml(JSON.stringify(memory, null, 2))}</pre>
+            `;
+        }
+
         function formatResponse(data) {
             const knownFacts = listItems(data.known_facts);
             const missing = listItems(data.missing_information);
@@ -244,8 +271,17 @@
                     <span class="label">Modo Action Planner</span>
                     <p><strong>${escapeHtml(data.action_planner_mode || "N/A")}</strong></p>
 
+                    <span class="label">Herramientas MCP usadas</span>
+                    ${formatMcpTools(data.mcp)}
+
                     <span class="label">Gateway Guardrails</span>
                     <pre>${escapeHtml(JSON.stringify(data.gateway_guardrails, null, 2))}</pre>
+                    
+                    <span class="label">Reviewer Agent</span>
+                    <pre>${escapeHtml(JSON.stringify(data.review, null, 2))}</pre>
+
+                    <span class="label">Agent Memory</span>
+                    ${formatAgentMemory(data.agent_memory)}
 
                     <span class="label">Resumen técnico del flujo</span>
                     <p>${escapeHtml(data.summary)}</p>
@@ -324,7 +360,7 @@
 
                 addMessage(
                     "assistant",
-                    "Ejecutando LangGraph con RAG Analyst LLM y Action Planner LLM vía Kong..."
+                    "Ejecutando flujo agentic con LangGraph, MCP, Kong y Lakera..."
                 );
 
                 try {
