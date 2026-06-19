@@ -22,11 +22,16 @@ from src.kong_client import (
 from src.tool_router_agent import ToolRouterAgent
 from src.tool_executor import ToolExecutor
 from src.reviewer_agent import ReviewerAgent
+from src.intent_router_agent import IntentRouterAgent
 
 
 class SOCState(TypedDict, total=False):
     incident: str
     graph_trace: List[str]
+
+    intent: str
+    intent_confidence: float
+    intent_reason: str
 
     context_blocks: List[Dict[str, Any]]
 
@@ -71,6 +76,7 @@ class SOCState(TypedDict, total=False):
 class SOCGraph:
     def __init__(self):
         self.rag = RAGEngine()
+        self.intent_router = IntentRouterAgent()
         self.rag_fallback_analyst = RAGIncidentAnalyst()
         self.risk_classifier = RiskClassifier()
         self.mcp = MCPClient()
@@ -83,6 +89,21 @@ class SOCGraph:
 
     def _build_graph(self):
         workflow = StateGraph(SOCState)
+
+        workflow.add_node(
+            "intent_router",
+            self._intent_router_node
+        )
+
+        workflow.add_node(
+            "knowledge_rag_retrieval",
+            self._knowledge_rag_retrieval_node
+        )
+
+        workflow.add_node(
+            "knowledge_answer_llm",
+            self._knowledge_answer_llm_node
+        )
 
         workflow.add_node(
             "rag_retrieval",
@@ -130,7 +151,26 @@ class SOCGraph:
         )
 
         workflow.set_entry_point(
-            "rag_retrieval"
+            "intent_router"
+        )
+
+        workflow.add_conditional_edges(
+            "intent_router",
+            self._route_after_intent,
+            {
+                "knowledge": "knowledge_rag_retrieval",
+                "incident": "rag_retrieval"
+            }
+        )
+
+        workflow.add_edge(
+            "knowledge_rag_retrieval",
+            "knowledge_answer_llm"
+        )
+
+        workflow.add_edge(
+            "knowledge_answer_llm",
+            END
         )
 
         workflow.add_edge(
@@ -217,6 +257,24 @@ class SOCGraph:
             node_name
         ]
 
+    def _route_after_intent(
+        self,
+        state: SOCState
+    ) -> str:
+        intent = state.get(
+            "intent",
+            "incident_analysis"
+        )
+
+        if intent in [
+            "knowledge_question",
+            "general_chat",
+            "playbook_request"
+        ]:
+            return "knowledge"
+
+        return "incident"
+
     def _route_after_risk(
         self,
         state: SOCState
@@ -230,6 +288,108 @@ class SOCGraph:
             return "critical"
 
         return "standard"
+
+    def _intent_router_node(
+        self,
+        state: SOCState
+    ) -> Dict[str, Any]:
+        decision = self.intent_router.classify(
+            state["incident"]
+        )
+
+        return {
+            "graph_trace": self._append_trace(
+                state,
+                "intent_router"
+            ),
+            "intent": decision.get(
+                "intent"
+            ),
+            "intent_confidence": decision.get(
+                "confidence"
+            ),
+            "intent_reason": decision.get(
+                "reason"
+            )
+        }
+
+    def _knowledge_rag_retrieval_node(
+        self,
+        state: SOCState
+    ) -> Dict[str, Any]:
+        question = state["incident"]
+
+        results = self.rag.search(
+            question
+        )
+
+        context_blocks = []
+
+        for result in results:
+            context_blocks.append({
+                "source": result.metadata.get(
+                    "source",
+                    "fuente_desconocida"
+                ),
+                "content": result.page_content.strip()
+            })
+
+        sources = list({
+            block["source"]
+            for block in context_blocks
+        })
+
+        return {
+            "graph_trace": self._append_trace(
+                state,
+                "knowledge_rag_retrieval"
+            ),
+            "context_blocks": context_blocks,
+            "sources": sources
+        }
+
+    def _knowledge_answer_llm_node(
+        self,
+        state: SOCState
+    ) -> Dict[str, Any]:
+        blocked = False
+        error = None
+
+        try:
+            final_response = self.kong_ai.generate_knowledge_response(
+                user_message=state["incident"],
+                context_blocks=state.get(
+                    "context_blocks",
+                    []
+                )
+            )
+
+        except KongAIBlockedError as exc:
+            blocked = True
+            error = str(exc)
+            final_response = (
+                "Kong AI Gateway bloqueó la respuesta usando Lakera Guard."
+            )
+
+        return {
+            "graph_trace": self._append_trace(
+                state,
+                "knowledge_answer_llm"
+            ),
+            "blocked": blocked,
+            "final_response": final_response,
+            "incident_type": "Consulta de conocimiento SOC",
+            "severity": "No aplica",
+            "risk": {},
+            "action_plan": {},
+            "review": {},
+            "gateway_guardrails": {
+                "provider": "kong",
+                "guardrail": "ai-lakera-guard",
+                "blocked": blocked,
+                "error": error
+            }
+        }
 
     def _rag_retrieval_node(
         self,

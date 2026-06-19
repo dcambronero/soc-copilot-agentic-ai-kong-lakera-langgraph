@@ -7,7 +7,7 @@
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     />
-    <title>SOC Copilot Seguro Agentic</title>
+    <title>SOC Copilot Seguro Agentic by Cambronero AI Labs</title>
     <link
         rel="stylesheet"
         href="/static/style.css"
@@ -21,7 +21,7 @@
                 <div class="brand-icon">SOC</div>
 
                 <div>
-                    <h1>SOC Copilot Seguro Agentic</h1>
+                    <h1>SOC Copilot Seguro Agentic Pura Vida</h1>
                     <p>LangGraph · RAG LLM · MCP Tool Agent · Kong · Lakera</p>
                 </div>
             </div>
@@ -264,6 +264,13 @@
 
                     <span class="label">Traza LangGraph</span>
                     ${formatTrace(data.graph_trace)}
+
+                    <span class="label">Intent Router</span>
+                    <pre>${escapeHtml(JSON.stringify({
+                        intent: data.intent,
+                        confidence: data.intent_confidence,
+                        reason: data.intent_reason
+                    }, null, 2))}</pre>
 
                     <span class="label">Modo RAG Analyst</span>
                     <p><strong>${escapeHtml(data.rag_analyst_mode || "N/A")}</strong></p>

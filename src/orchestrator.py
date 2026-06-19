@@ -5,12 +5,13 @@ from src.agent_memory import AgentMemory
 class SOCOrchestrator:
     def __init__(self):
         self.graph = SOCGraph()
-        self.memory = AgentMemory()
 
     def process_incident(
         self,
         incident: str
     ) -> dict:
+        memory = AgentMemory()
+
         state = self.graph.run(
             incident
         )
@@ -19,9 +20,15 @@ class SOCOrchestrator:
             "graph_trace",
             []
         ):
-            self.memory.record(
+            memory.record(
                 step,
                 {
+                    "intent": state.get(
+                        "intent"
+                    ),
+                    "intent_confidence": state.get(
+                        "intent_confidence"
+                    ),
                     "incident_type": state.get(
                         "incident_type"
                     ),
@@ -59,9 +66,9 @@ class SOCOrchestrator:
             ),
 
             "summary": (
-                "Procesado por SOC Copilot Agentic AI usando LangGraph, "
-                "RAG Analyst LLM, Tool Router Agent, MCP Tool Executor, "
-                "Action Planner LLM, Reviewer Agent y Kong AI Gateway."
+                "Procesado por SOC Copilot Agentic AI usando Intent Router, "
+                "LangGraph, RAG, agentes LLM, Tool Calling, Reviewer Agent "
+                "y Kong AI Gateway."
             ),
 
             "graph_trace": state.get(
@@ -69,7 +76,19 @@ class SOCOrchestrator:
                 []
             ),
 
-            "agent_memory": self.memory.export(),
+            "agent_memory": memory.export(),
+
+            "intent": state.get(
+                "intent"
+            ),
+
+            "intent_confidence": state.get(
+                "intent_confidence"
+            ),
+
+            "intent_reason": state.get(
+                "intent_reason"
+            ),
 
             "rag_analyst_mode": state.get(
                 "rag_analyst_mode"
